@@ -1,10 +1,10 @@
 {
-  "name": "Lasso Export",
-  "desc": "Adds an Export PNG button to the lasso toolbar that saves the selected region as a PNG.",
+  "name": "Scroll Export",
+  "desc": "Adds an Export Scroll PNG button to the note menu that stitches every page into a single tall PNG.",
   "iconPath": "./assets/icon.png",
   "versionName": "0.1.0",
   "versionCode": "1",
-  "pluginID": "l2v38yyeppz50sby",
-  "pluginKey": "lassoexport",
+  "pluginID": "s3kq8wm4xnv01a7e",
+  "pluginKey": "scrollexport",
   "jsMainPath": "index"
 }

@@ -186,9 +186,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.lassoexport_scaffold"
+    namespace "com.scrollexport_scaffold"
     defaultConfig {
-        applicationId "com.lassoexport_scaffold"
+        applicationId "com.scrollexport_scaffold"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

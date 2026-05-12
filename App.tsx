@@ -1,5 +1,5 @@
 /**
- * LassoExport — exports the current lasso selection as a PNG.
+ * ScrollExport — stitches every page of the current note into a single tall PNG.
  *
  * @format
  */
@@ -7,12 +7,18 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  NativeModules,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { FileUtils, PluginCommAPI, PluginManager } from 'sn-plugin-lib';
+import {
+  FileUtils,
+  PluginCommAPI,
+  PluginFileAPI,
+  PluginManager,
+} from 'sn-plugin-lib';
 
 interface APIResponse<T> {
   success: boolean;
@@ -21,15 +27,19 @@ interface APIResponse<T> {
 }
 
 type Status =
-  | { kind: 'working' }
+  | { kind: 'working'; note: string }
   | { kind: 'done'; path: string }
   | { kind: 'error'; message: string };
 
+const { ScrollStitch } = NativeModules as {
+  ScrollStitch: { stitchVertically: (paths: string[], outPath: string) => Promise<string> };
+};
+
 function App(): React.JSX.Element {
-  const [status, setStatus] = useState<Status>({ kind: 'working' });
+  const [status, setStatus] = useState<Status>({ kind: 'working', note: 'Preparing…' });
 
   useEffect(() => {
-    exportLasso().then(
+    exportScroll((note) => setStatus({ kind: 'working', note })).then(
       (path) => setStatus({ kind: 'done', path }),
       (err: unknown) =>
         setStatus({
@@ -50,7 +60,7 @@ function App(): React.JSX.Element {
       {status.kind === 'working' && (
         <>
           <ActivityIndicator size="large" />
-          <Text style={styles.message}>Exporting selection…</Text>
+          <Text style={styles.message}>{status.note}</Text>
         </>
       )}
 
@@ -86,7 +96,7 @@ function deriveBaseName(notePath: string): string {
   return safe.length > 0 ? safe : 'note';
 }
 
-async function exportLasso(): Promise<string> {
+async function exportScroll(onProgress: (msg: string) => void): Promise<string> {
   const exportDir = await FileUtils.getExportPath();
   if (!exportDir) throw new Error('cannot resolve EXPORT directory');
   await FileUtils.makeDir(exportDir);
@@ -94,45 +104,60 @@ async function exportLasso(): Promise<string> {
   const pluginDir = await PluginManager.getPluginDirPath();
   if (!pluginDir) throw new Error('cannot resolve plugin directory');
 
-  let baseName = 'note';
-  try {
-    const notePath = unwrap<string>(
-      await PluginCommAPI.getCurrentFilePath(),
-      'getCurrentFilePath',
-    );
-    baseName = deriveBaseName(notePath);
-  } catch {
-    // Filename is a nice-to-have; fall back to "note" if the SDK refuses.
-  }
+  const notePath = unwrap<string>(
+    await PluginCommAPI.getCurrentFilePath(),
+    'getCurrentFilePath',
+  );
+  const baseName = deriveBaseName(notePath);
+
+  const total = unwrap<number>(
+    await PluginFileAPI.getNoteTotalPageNum(notePath),
+    'getNoteTotalPageNum',
+  );
+  if (!total || total < 1) throw new Error('note has no pages');
 
   const stamp = Date.now();
   const trimmedExport = exportDir.replace(/\/+$/, '');
   const trimmedPlugin = pluginDir.replace(/\/+$/, '');
-  const stickerPath = `${trimmedPlugin}/sticker-${stamp}.sticker`;
-  const outPath = `${trimmedExport}/lasso-${baseName}-${stamp}.png`;
+  const tmpDir = `${trimmedPlugin}/scroll-${stamp}`;
+  await FileUtils.makeDir(tmpDir);
 
-  unwrap<boolean>(
-    await PluginCommAPI.saveStickerByLasso(stickerPath),
-    'saveStickerByLasso',
-  );
-
-  const size = unwrap<{ width: number; height: number }>(
-    await PluginCommAPI.getStickerSize(stickerPath),
-    'getStickerSize',
-  );
-
-  unwrap<boolean>(
-    await PluginCommAPI.generateStickerThumbnail(stickerPath, outPath, size),
-    'generateStickerThumbnail',
-  );
-
+  const pagePaths: string[] = [];
   try {
-    await FileUtils.deleteFile(stickerPath);
-  } catch {
-    // best-effort cleanup
-  }
+    for (let i = 0; i < total; i++) {
+      onProgress(`Rendering page ${i + 1} of ${total}…`);
+      const pagePath = `${tmpDir}/page-${String(i).padStart(4, '0')}.png`;
+      unwrap<boolean>(
+        await PluginFileAPI.generateNotePng({
+          notePath,
+          page: i,
+          times: 1,
+          pngPath: pagePath,
+          type: 1,
+        }),
+        `generateNotePng(page ${i})`,
+      );
+      pagePaths.push(pagePath);
+    }
 
-  return outPath;
+    onProgress(`Stitching ${total} pages…`);
+    const outPath = `${trimmedExport}/scroll_${baseName}_${stamp}.png`;
+    await ScrollStitch.stitchVertically(pagePaths, outPath);
+    return outPath;
+  } finally {
+    for (const p of pagePaths) {
+      try {
+        await FileUtils.deleteFile(p);
+      } catch {
+        // best-effort cleanup
+      }
+    }
+    try {
+      await FileUtils.deleteDir(tmpDir);
+    } catch {
+      // best-effort cleanup
+    }
+  }
 }
 
 const styles = StyleSheet.create({

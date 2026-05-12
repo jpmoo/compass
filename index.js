@@ -11,10 +11,9 @@ AppRegistry.registerComponent(appName, () => App);
 
 PluginManager.init();
 
-PluginManager.registerButton(2, ['NOTE'], {
+PluginManager.registerButton(1, ['NOTE'], {
   id: 1,
-  name: 'Export PNG',
+  name: 'Export Scroll PNG',
   icon: Image.resolveAssetSource(require('./assets/icon.png')).uri,
-  editDataTypes: [0, 1, 2, 3, 4, 5],
   showType: 1,
 });

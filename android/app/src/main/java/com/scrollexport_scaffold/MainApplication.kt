@@ -1,4 +1,4 @@
-package com.lassoexport_scaffold
+package com.scrollexport_scaffold
 
 import android.app.Application
 import com.facebook.react.PackageList
@@ -16,8 +16,11 @@ class MainApplication : Application(), ReactApplication {
 
   override val reactNativeHost: ReactNativeHost =
       object : DefaultReactNativeHost(this) {
-        override fun getPackages(): List<ReactPackage> =
-            PackageList(this).packages
+        override fun getPackages(): List<ReactPackage> {
+          val packages = PackageList(this).packages
+          packages.add(ScrollStitchPackage())
+          return packages
+        }
 
         override fun getJSMainModuleName(): String = "index"
 
