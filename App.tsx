@@ -141,8 +141,24 @@ async function exportScroll(onProgress: (msg: string) => void): Promise<string> 
     }
 
     onProgress(`Stitching ${total} pages…`);
+    const stagedPath = `${tmpDir}/scroll_${baseName}_${stamp}.png`;
     const outPath = `${trimmedExport}/scroll_${baseName}_${stamp}.png`;
-    await ScrollStitch.stitchVertically(pagePaths, outPath);
+    await ScrollStitch.stitchVertically(pagePaths, stagedPath);
+
+    // Hand the finished PNG over to the SDK so the device's file index
+    // sees it. A raw FileOutputStream write into EXPORT lands on disk
+    // but doesn't register with Supernote's file browser.
+    onProgress('Saving to EXPORT…');
+    const moved = await FileUtils.renameToFile(stagedPath, outPath);
+    if (!moved) {
+      const copied = await FileUtils.copyFile(stagedPath, outPath);
+      if (!copied) throw new Error('could not move stitched PNG into EXPORT');
+      try {
+        await FileUtils.deleteFile(stagedPath);
+      } catch {
+        // best-effort cleanup
+      }
+    }
     return outPath;
   } finally {
     for (const p of pagePaths) {
