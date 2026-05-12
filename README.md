@@ -73,7 +73,10 @@ Output: `build/outputs/scrollexport.snplg` (~7 MB).
 ## Use
 
 1. Open any NOTE.
-2. From the side menu, tap **Export Scroll PNG**.
+2. Open the side menu, expand the **Plugins** submenu, and tap
+   **Export Scroll PNG**. (The Supernote firmware groups all plugin
+   sidebar buttons under Plugins; there'''s no SDK option to surface
+   them at the top level.)
 3. A single tall PNG of all pages stitched top-to-bottom appears in the
    **EXPORT** folder, named `scroll_<note name>_<timestamp>.png`.
 
