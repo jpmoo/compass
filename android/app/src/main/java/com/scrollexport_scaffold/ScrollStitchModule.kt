@@ -9,6 +9,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableArray
+import com.facebook.react.bridge.ReadableMap
 import java.io.File
 import java.io.FileOutputStream
 
@@ -65,6 +66,76 @@ class ScrollStitchModule(reactContext: ReactApplicationContext) :
       promise.resolve(outPath)
     } catch (t: Throwable) {
       promise.reject("ESTITCH", t.message ?: "stitch failed", t)
+    }
+  }
+
+  /**
+   * Composites pages into a 2D grid. Each `tiles` entry is
+   * `{ path: string, col: int, row: int }`. `colWidths[c]` is the width
+   * (px) reserved for column c; `rowHeights[r]` is the height reserved
+   * for row r. Pages are drawn centered within their cell. Empty cells
+   * stay white.
+   */
+  @ReactMethod
+  fun stitchGrid(
+      tiles: ReadableArray,
+      colWidths: ReadableArray,
+      rowHeights: ReadableArray,
+      outPath: String,
+      promise: Promise
+  ) {
+    try {
+      val cols = colWidths.size()
+      val rows = rowHeights.size()
+      if (cols == 0 || rows == 0) {
+        promise.reject("EEMPTY", "grid must have at least one row and column")
+        return
+      }
+
+      // Column x-offsets and row y-offsets, plus totals.
+      val colX = IntArray(cols)
+      var totalW = 0
+      for (c in 0 until cols) {
+        colX[c] = totalW
+        totalW += colWidths.getInt(c)
+      }
+      val rowY = IntArray(rows)
+      var totalH = 0
+      for (r in 0 until rows) {
+        rowY[r] = totalH
+        totalH += rowHeights.getInt(r)
+      }
+
+      val dest = Bitmap.createBitmap(totalW, totalH, Bitmap.Config.ARGB_8888)
+      val canvas = Canvas(dest)
+      canvas.drawColor(Color.WHITE)
+
+      for (i in 0 until tiles.size()) {
+        val tile = tiles.getMap(i) ?: continue
+        val path = tile.getString("path") ?: continue
+        val col = tile.getInt("col")
+        val row = tile.getInt("row")
+        if (col < 0 || col >= cols || row < 0 || row >= rows) continue
+
+        val page = BitmapFactory.decodeFile(path)
+            ?: throw RuntimeException("decode failed: $path")
+        val cellW = colWidths.getInt(col)
+        val cellH = rowHeights.getInt(row)
+        val x = colX[col] + (cellW - page.width) / 2f
+        val y = rowY[row] + (cellH - page.height) / 2f
+        canvas.drawBitmap(page, x, y, null)
+        page.recycle()
+      }
+
+      File(outPath).parentFile?.mkdirs()
+      FileOutputStream(outPath).use { out ->
+        dest.compress(Bitmap.CompressFormat.PNG, 100, out)
+      }
+      dest.recycle()
+
+      promise.resolve(outPath)
+    } catch (t: Throwable) {
+      promise.reject("ESTITCH", t.message ?: "grid stitch failed", t)
     }
   }
 }

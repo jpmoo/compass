@@ -1,60 +1,69 @@
-# ScrollExport
+# Compass
 
 > Vibe-coded with [Claude](https://claude.com/claude-code). No human wrote
 > a line of this — review accordingly before relying on it.
 
-A Supernote plugin that adds an **Export Scroll PNG** button to the note
-sidebar menu. Tap it on any NOTE and every page is stitched, top to
-bottom, into a single tall PNG dropped in the device's **EXPORT** folder
-as `scroll_<note name>_<timestamp>.png`.
+A Supernote plugin that drops a **shortcut link** on the current page
+pointing to a brand-new page appended to the end of the same note, and
+puts a matching **return link** on the opposite edge of that new page.
+
+Pick the edge of the current page where you want the outbound link —
+right / up / left / down — and Compass:
+
+1. Appends a new page (same template as the current page) to the note.
+2. Inserts an arrow-glyph text link on the chosen edge of the current
+   page that jumps to the new page.
+3. Inserts a return link on the opposite edge of the new page that
+   jumps back. (Top → bottom, right → left, and vice versa.)
+
+The chooser view also has an **Export Map PNG** button. It treats the
+compass links as a 2D map: starting from the currently-open page (at
+the origin), BFS follows every "→/↑/←/↓" link in the note to assign
+each reachable page a grid coordinate. The pages are then rendered and
+stitched into one PNG laid out as the map, written to **EXPORT** as
+`map_<note name>_<timestamp>.png`. Empty cells stay white. Conflicting
+links (two paths trying to land a page at different cells, or two
+pages trying to claim the same cell) use first-write-wins and the
+toast reports the conflict count.
 
 ## How it works
 
 1. The plugin registers a Type-1 (sidebar) button via
-   `PluginManager.registerButton` with `showType: 1`. The export runs
-   in the `PluginManager.registerButtonListener` callback (which fires
-   fresh on every press) and closes the view via
-   `PluginManager.closePluginView()` as soon as the work is done.
-   `showType: 1` is required even though we never use the view —
-   Supernote only loads the plugin's native-module APK when a view is
-   instantiated, so `showType: 0` would leave `ScrollStitch`
-   unregistered. Running the work in `useEffect` inside the view (an
-   earlier attempt) doesn't work either: `closePluginView` hides the
-   view without unmounting the component, so the next press just
-   reuses the stale instance and the effect never re-runs.
-2. The listener reads `getNoteTotalPageNum` and loops
-   `PluginFileAPI.generateNotePng` to render each page to a temp PNG in
-   the plugin directory.
-3. A small native Android module (`ScrollStitch`) decodes each page,
-   draws them centered onto one tall `ARGB_8888` bitmap with a white
-   background, and writes the result as a PNG into the plugin's temp
-   dir.
-4. `FileUtils.renameToFile` (fallback: `copyFile` + `deleteFile`) moves
-   the stitched PNG into EXPORT — going through the SDK so Supernote's
-   file index sees it.
-5. The per-page temp files are deleted.
-6. Success and failure both surface as a bottom-of-screen
-   `ToastAndroid` flash — no confirmation required.
+   `PluginManager.registerButton` with `showType: 1`. Tapping it opens
+   a small chooser view (a compass rose of four arrow buttons).
+2. Picking a direction calls `compass.createLinkedPage(direction)`:
+   - `PluginCommAPI.getCurrentFilePath` + `getCurrentPageNum` →
+     source page.
+   - `PluginFileAPI.getNoteTotalPageNum` → where to append.
+   - `PluginFileAPI.getNotePageTemplate` → keep the new page looking
+     like the source page.
+   - `PluginFileAPI.insertNotePage` → create the new page at the end.
+   - `PluginFileAPI.getPageSize` → page pixel dimensions for placement.
+   - `PluginNoteAPI.insertTextLink` → outbound link on the current
+     page (`insertTextLink` always targets the current page).
+   - `PluginCommAPI.createElement(TYPE_LINK)` + `PluginFileAPI.insertElements`
+     → return link on the new page. The SDK has no page-navigation API,
+     so the return link can't go through `insertTextLink`; we build a
+     link element directly and insert it on the target page.
+3. The view closes itself with `PluginManager.closePluginView()` and a
+   bottom toast reports success or failure.
 
 ## Project layout
 
 ```
 .
-├── App.tsx                                  # plugin UI + export logic
+├── App.tsx                                  # chooser-rose view
+├── compass.js                               # createLinkedPage(direction)
 ├── index.js                                 # registers the sidebar button
-├── app.json                                 # RN AppRegistry name (must equal pluginKey)
-├── PluginConfig.json                        # plugin manifest (name, desc, icon, id)
+├── app.json                                 # RN AppRegistry name (= pluginKey)
+├── PluginConfig.json                        # plugin manifest
 ├── package.json
 ├── tsconfig.json / babel.config.js / metro.config.js
 ├── buildPlugin.sh                           # Supernote-supplied packager → .snplg
 ├── buildPlugin.ps1                          # Windows variant
-├── assets/icon.png                          # plugin icon shown in the sidebar
-└── android/                                 # RN Android scaffold + ScrollStitch native module
-    └── app/src/main/java/com/scrollexport_scaffold/
-        ├── MainActivity.kt
-        ├── MainApplication.kt
-        ├── ScrollStitchModule.kt            # Bitmap-based vertical stitcher
-        └── ScrollStitchPackage.kt
+├── assets/icon.png                          # rasterized compass icon
+└── android/                                 # RN Android scaffold (+ ScrollStitch
+                                             #   native module, kept for future use)
 ```
 
 ## Build
@@ -77,32 +86,31 @@ npm install
 ./buildPlugin.sh
 ```
 
-Output: `build/outputs/scrollexport.snplg` (~7 MB).
+Output: `build/outputs/compass.snplg`.
 
 ## Install on device
 
 1. Connect the Supernote in USB transfer mode.
-2. Copy `scrollexport.snplg` to the `MyStyle` folder.
+2. Copy `compass.snplg` to the `MyStyle` folder.
 3. On the device: **Settings → Apps → Plugins → Add Plugin →
-   `scrollexport.snplg`**.
+   `compass.snplg`**.
 
 ## Use
 
 1. Open any NOTE.
 2. Open the side menu, expand the **Plugins** submenu, and tap
-   **Export Scroll PNG**. (The Supernote firmware groups all plugin
-   sidebar buttons under Plugins; there's no SDK option to surface
-   them at the top level.)
-3. A single tall PNG of all pages stitched top-to-bottom appears in the
-   **EXPORT** folder, named `scroll_<note name>_<timestamp>.png`.
+   **Compass**.
+3. In the chooser, tap the arrow for the edge you want the outbound
+   link on. The new page is appended to the note; the outbound and
+   return links appear automatically.
 
 ## Caveats
 
-- The stitcher holds the full output bitmap in memory. Very long notes
-  may OOM — tune `Bitmap.Config.ARGB_8888` to `RGB_565` in
-  `ScrollStitchModule.kt` if you need to push further.
-- Pages of differing widths are centered on the widest page; the rest
-  of the row is filled white.
+- The link box dimensions and inset (see `compass.js`) are tuned by
+  guess; if the arrow looks too small/large or sits awkwardly, tweak
+  `LINK_BOX_LONG` / `LINK_BOX_SHORT` / `EDGE_INSET` / `FONT_SIZE`.
+- New pages are always appended at the end of the note (not inserted
+  right after the current page).
 
 ## Compatibility
 
@@ -112,8 +120,7 @@ Built against:
 - `sn-plugin-lib` 0.1.x
 - Supernote firmware exposing the official Plugin SDK
 
-Tested on the build host only; please verify on-device behavior before
-relying on the output.
+Untested on-device — please verify before relying on the output.
 
 ## License
 
