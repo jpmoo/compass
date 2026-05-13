@@ -1,10 +1,10 @@
 {
-  "name": "Scroll Export",
-  "desc": "Adds an Export Scroll PNG button to the note menu that stitches every page into a single tall PNG.",
+  "name": "Compass",
+  "desc": "Adds a shortcut link on the current page that jumps to a freshly created page, with a return link on the opposite edge of the new page.",
   "iconPath": "./assets/icon.png",
   "versionName": "0.1.0",
   "versionCode": "1",
-  "pluginID": "s3kq8wm4xnv01a7e",
-  "pluginKey": "scrollexport",
+  "pluginID": "cmp4k7zq8x3m6vn1",
+  "pluginKey": "compass",
   "jsMainPath": "index"
 }
