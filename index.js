@@ -23,33 +23,45 @@ PluginManager.init();
 
 const BUTTON_ID = 1;
 
+// showType: 1 is required even though we never use the plugin view —
+// the Supernote host only loads the plugin's native-module APK when a
+// view is actually instantiated. With showType: 0 the ScrollStitch
+// module never registers and stitchVertically blows up. The button
+// listener still fires on every press regardless of view state, so we
+// do the work there and close the view immediately.
 PluginManager.registerButton(1, ['NOTE'], {
   id: BUTTON_ID,
   name: 'Export Scroll PNG',
   icon: Image.resolveAssetSource(require('./assets/icon.png')).uri,
-  showType: 0,
+  showType: 1,
 });
 
 PluginManager.registerButtonListener({
   onButtonPress: (msg) => {
     if (!msg || msg.id !== BUTTON_ID) return;
-    runExport().then(
-      (outPath) => {
-        ToastAndroid.showWithGravity(
-          `Exported ${outPath}`,
-          ToastAndroid.LONG,
-          ToastAndroid.BOTTOM,
-        );
-      },
-      (err) => {
-        const message = err instanceof Error ? err.message : String(err);
-        ToastAndroid.showWithGravity(
-          `Scroll export failed: ${message}`,
-          ToastAndroid.LONG,
-          ToastAndroid.BOTTOM,
-        );
-      },
-    );
+    runExport()
+      .then(
+        (outPath) => {
+          ToastAndroid.showWithGravity(
+            `Exported ${outPath}`,
+            ToastAndroid.LONG,
+            ToastAndroid.BOTTOM,
+          );
+        },
+        (err) => {
+          const message = err instanceof Error ? err.message : String(err);
+          ToastAndroid.showWithGravity(
+            `Scroll export failed: ${message}`,
+            ToastAndroid.LONG,
+            ToastAndroid.BOTTOM,
+          );
+        },
+      )
+      .finally(() => {
+        // The view exists only to keep the host loading our native module.
+        // Close it as soon as the work is done.
+        PluginManager.closePluginView().catch(() => {});
+      });
   },
 });
 

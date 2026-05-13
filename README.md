@@ -11,13 +11,17 @@ as `scroll_<note name>_<timestamp>.png`.
 ## How it works
 
 1. The plugin registers a Type-1 (sidebar) button via
-   `PluginManager.registerButton` with `showType: 0` — no plugin view
-   opens on tap. The export runs directly in the
-   `PluginManager.registerButtonListener` callback so it fires fresh on
-   every press. (Earlier revisions opened a plugin view and ran the
-   work in `useEffect` — that breaks because closing the view doesn't
-   unmount the component, so the next press just brings the stale view
-   back to the foreground and the effect never re-runs.)
+   `PluginManager.registerButton` with `showType: 1`. The export runs
+   in the `PluginManager.registerButtonListener` callback (which fires
+   fresh on every press) and closes the view via
+   `PluginManager.closePluginView()` as soon as the work is done.
+   `showType: 1` is required even though we never use the view —
+   Supernote only loads the plugin's native-module APK when a view is
+   instantiated, so `showType: 0` would leave `ScrollStitch`
+   unregistered. Running the work in `useEffect` inside the view (an
+   earlier attempt) doesn't work either: `closePluginView` hides the
+   view without unmounting the component, so the next press just
+   reuses the stale instance and the effect never re-runs.
 2. The listener reads `getNoteTotalPageNum` and loops
    `PluginFileAPI.generateNotePng` to render each page to a temp PNG in
    the plugin directory.
