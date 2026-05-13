@@ -29,8 +29,8 @@ as `scroll_<note name>_<timestamp>.png`.
    the stitched PNG into EXPORT — going through the SDK so Supernote's
    file index sees it.
 5. The per-page temp files are deleted.
-6. A `ToastAndroid` flash confirms success; errors surface in a
-   `NativeUIUtils.showRattaDialog` so the message stays put.
+6. Success and failure both surface as a bottom-of-screen
+   `ToastAndroid` flash — no confirmation required.
 
 ## Project layout
 

@@ -12,7 +12,6 @@ import App from './App';
 import { name as appName } from './app.json';
 import {
   FileUtils,
-  NativeUIUtils,
   PluginCommAPI,
   PluginFileAPI,
   PluginManager,
@@ -38,15 +37,18 @@ PluginManager.registerButtonListener({
     if (!msg || msg.id !== BUTTON_ID) return;
     runExport().then(
       (outPath) => {
-        ToastAndroid.show(`Exported ${outPath}`, ToastAndroid.LONG);
+        ToastAndroid.showWithGravity(
+          `Exported ${outPath}`,
+          ToastAndroid.LONG,
+          ToastAndroid.BOTTOM,
+        );
       },
       (err) => {
         const message = err instanceof Error ? err.message : String(err);
-        NativeUIUtils.showRattaDialog(
+        ToastAndroid.showWithGravity(
           `Scroll export failed: ${message}`,
-          '',
-          'OK',
-          false,
+          ToastAndroid.LONG,
+          ToastAndroid.BOTTOM,
         );
       },
     );
