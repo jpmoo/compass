@@ -11,14 +11,26 @@ as `scroll_<note name>_<timestamp>.png`.
 ## How it works
 
 1. The plugin registers a Type-1 (sidebar) button via
-   `PluginManager.registerButton`.
-2. When tapped, it reads `getNoteTotalPageNum` and loops
+   `PluginManager.registerButton` with `showType: 0` — no plugin view
+   opens on tap. The export runs directly in the
+   `PluginManager.registerButtonListener` callback so it fires fresh on
+   every press. (Earlier revisions opened a plugin view and ran the
+   work in `useEffect` — that breaks because closing the view doesn't
+   unmount the component, so the next press just brings the stale view
+   back to the foreground and the effect never re-runs.)
+2. The listener reads `getNoteTotalPageNum` and loops
    `PluginFileAPI.generateNotePng` to render each page to a temp PNG in
    the plugin directory.
 3. A small native Android module (`ScrollStitch`) decodes each page,
    draws them centered onto one tall `ARGB_8888` bitmap with a white
-   background, and writes the result as a PNG.
-4. The per-page temp files are deleted.
+   background, and writes the result as a PNG into the plugin's temp
+   dir.
+4. `FileUtils.renameToFile` (fallback: `copyFile` + `deleteFile`) moves
+   the stitched PNG into EXPORT — going through the SDK so Supernote's
+   file index sees it.
+5. The per-page temp files are deleted.
+6. A `ToastAndroid` flash confirms success; errors surface in a
+   `NativeUIUtils.showRattaDialog` so the message stays put.
 
 ## Project layout
 
@@ -75,7 +87,7 @@ Output: `build/outputs/scrollexport.snplg` (~7 MB).
 1. Open any NOTE.
 2. Open the side menu, expand the **Plugins** submenu, and tap
    **Export Scroll PNG**. (The Supernote firmware groups all plugin
-   sidebar buttons under Plugins; there'''s no SDK option to surface
+   sidebar buttons under Plugins; there's no SDK option to surface
    them at the top level.)
 3. A single tall PNG of all pages stitched top-to-bottom appears in the
    **EXPORT** folder, named `scroll_<note name>_<timestamp>.png`.
