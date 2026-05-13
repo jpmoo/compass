@@ -23,8 +23,6 @@ PluginManager.init();
 
 const BUTTON_ID = 1;
 
-const { ScrollStitch } = NativeModules;
-
 PluginManager.registerButton(1, ['NOTE'], {
   id: BUTTON_ID,
   name: 'Export Scroll PNG',
@@ -114,7 +112,11 @@ async function runExport() {
 
     const stagedPath = `${tmpDir}/scroll_${baseName}_${stamp}.png`;
     const outPath = `${trimmedExport}/scroll_${baseName}_${stamp}.png`;
-    await ScrollStitch.stitchVertically(pagePaths, stagedPath);
+    const stitcher = NativeModules.ScrollStitch;
+    if (!stitcher || typeof stitcher.stitchVertically !== 'function') {
+      throw new Error('ScrollStitch native module is not registered');
+    }
+    await stitcher.stitchVertically(pagePaths, stagedPath);
 
     // Hand the finished PNG over to the SDK so the device's file index
     // sees it. A raw FileOutputStream write into EXPORT lands on disk
