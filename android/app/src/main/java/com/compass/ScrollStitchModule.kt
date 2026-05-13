@@ -1,4 +1,4 @@
-package com.scrollexport_scaffold
+package com.compass
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory

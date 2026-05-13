@@ -42,9 +42,12 @@ const ARROW_TO_DIR = Object.fromEntries(
 const TYPE_LINK = 600;
 const LINK_TYPE_NOTE_PAGE = 0; // 0=jump to note page
 const LINK_STYLE_BORDER = 1;   // 0=underline 1=solid border 2=dashed border
-const LINK_BOX_LONG = 160;
-const LINK_BOX_SHORT = 60;
-const EDGE_INSET = 24;
+// Sized to hug a single arrow glyph at FONT_SIZE so the host's link
+// icon sits flush against the text instead of floating in empty space.
+const LINK_BOX_LONG = 80;
+const LINK_BOX_SHORT = 50;
+// Top edge sits under the Supernote toolbar — push it well below.
+const EDGE_INSETS = { top: 130, right: 24, bottom: 24, left: 24 };
 const FONT_SIZE = 36;
 
 function unwrap(value, what) {
@@ -54,37 +57,57 @@ function unwrap(value, what) {
   return value.result;
 }
 
+// Resolve a template string acceptable to insertNotePage. The JSDoc
+// for insertNotePage calls this param "Page template name" (vs.
+// createNote which wants a "Template path"), so we feed it the
+// NoteTemplateInfo.name from getNotePageTemplate. Fall back to the
+// first system template's name if the current page has no usable
+// template info.
+async function resolveTemplate(notePath, page) {
+  const info = unwrap(
+    await PluginFileAPI.getNotePageTemplate(notePath, page),
+    'getNotePageTemplate',
+  );
+  if (info && typeof info === 'object' && info.name) return info.name;
+
+  let sys = await PluginCommAPI.getNoteSystemTemplates();
+  if (sys && !Array.isArray(sys) && sys.success) sys = sys.result;
+  if (Array.isArray(sys) && sys.length > 0 && sys[0]?.name) return sys[0].name;
+
+  throw new Error('cannot resolve a template for the new page');
+}
+
 // Returns the rect (pixel coords) for a link box centered on the given
 // edge of a page with width/height.
 function edgeRect(direction, width, height) {
   switch (direction) {
     case 'right':
       return {
-        left: width - EDGE_INSET - LINK_BOX_LONG,
+        left: width - EDGE_INSETS.right - LINK_BOX_LONG,
         top: Math.round(height / 2 - LINK_BOX_SHORT / 2),
-        right: width - EDGE_INSET,
+        right: width - EDGE_INSETS.right,
         bottom: Math.round(height / 2 + LINK_BOX_SHORT / 2),
       };
     case 'left':
       return {
-        left: EDGE_INSET,
+        left: EDGE_INSETS.left,
         top: Math.round(height / 2 - LINK_BOX_SHORT / 2),
-        right: EDGE_INSET + LINK_BOX_LONG,
+        right: EDGE_INSETS.left + LINK_BOX_LONG,
         bottom: Math.round(height / 2 + LINK_BOX_SHORT / 2),
       };
     case 'up':
       return {
         left: Math.round(width / 2 - LINK_BOX_LONG / 2),
-        top: EDGE_INSET,
+        top: EDGE_INSETS.top,
         right: Math.round(width / 2 + LINK_BOX_LONG / 2),
-        bottom: EDGE_INSET + LINK_BOX_SHORT,
+        bottom: EDGE_INSETS.top + LINK_BOX_SHORT,
       };
     case 'down':
       return {
         left: Math.round(width / 2 - LINK_BOX_LONG / 2),
-        top: height - EDGE_INSET - LINK_BOX_SHORT,
+        top: height - EDGE_INSETS.bottom - LINK_BOX_SHORT,
         right: Math.round(width / 2 + LINK_BOX_LONG / 2),
-        bottom: height - EDGE_INSET,
+        bottom: height - EDGE_INSETS.bottom,
       };
     default:
       throw new Error(`unknown direction: ${direction}`);
@@ -111,10 +134,7 @@ export async function createLinkedPage(direction) {
   if (!total || total < 1) throw new Error('note has no pages');
 
   // Match the new page's template to the current page's template.
-  const template = unwrap(
-    await PluginFileAPI.getNotePageTemplate(notePath, srcPage),
-    'getNotePageTemplate',
-  );
+  const template = await resolveTemplate(notePath, srcPage);
 
   // Insert the new page at the end of the note.
   const newPage = total; // page index of the appended page (0-based)
@@ -122,7 +142,7 @@ export async function createLinkedPage(direction) {
     await PluginFileAPI.insertNotePage({
       notePath,
       page: newPage,
-      template: typeof template === 'string' ? template : template?.path || template?.template || '',
+      template,
     }),
     'insertNotePage',
   );

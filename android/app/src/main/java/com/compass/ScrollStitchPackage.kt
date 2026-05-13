@@ -1,4 +1,4 @@
-package com.scrollexport_scaffold
+package com.compass
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

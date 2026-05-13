@@ -52,8 +52,8 @@ toast reports the conflict count.
 
 ```
 .
-├── App.tsx                                  # chooser-rose view
-├── compass.js                               # createLinkedPage(direction)
+├── App.tsx                                  # chooser-rose view + export button
+├── compass.js                               # createLinkedPage + exportMap
 ├── index.js                                 # registers the sidebar button
 ├── app.json                                 # RN AppRegistry name (= pluginKey)
 ├── PluginConfig.json                        # plugin manifest
@@ -61,9 +61,10 @@ toast reports the conflict count.
 ├── tsconfig.json / babel.config.js / metro.config.js
 ├── buildPlugin.sh                           # Supernote-supplied packager → .snplg
 ├── buildPlugin.ps1                          # Windows variant
-├── assets/icon.png                          # rasterized compass icon
-└── android/                                 # RN Android scaffold (+ ScrollStitch
-                                             #   native module, kept for future use)
+├── assets/                                  # compass SVG source + rasterized icon.png
+└── android/                                 # RN Android scaffold;
+                                             #   ScrollStitchModule.kt holds the
+                                             #   vertical and grid bitmap stitchers
 ```
 
 ## Build
@@ -106,11 +107,17 @@ Output: `build/outputs/compass.snplg`.
 
 ## Caveats
 
-- The link box dimensions and inset (see `compass.js`) are tuned by
-  guess; if the arrow looks too small/large or sits awkwardly, tweak
-  `LINK_BOX_LONG` / `LINK_BOX_SHORT` / `EDGE_INSET` / `FONT_SIZE`.
+- The link box dimensions and edge insets (see `compass.js`) are tuned
+  by eye on a Supernote A5X. If the arrow looks too small/large or
+  sits awkwardly, tweak `LINK_BOX_LONG` / `LINK_BOX_SHORT` /
+  `EDGE_INSETS` / `FONT_SIZE`. The top edge gets a larger inset by
+  default so links don't hide under the device's toolbar.
 - New pages are always appended at the end of the note (not inserted
-  right after the current page).
+  right after the current page). The map export reconstructs the
+  spatial layout from the compass-link arrows regardless.
+- The map export identifies compass links by their arrow glyph
+  (`→ ↑ ← ↓`) in the link's text — hand-placed page links that use
+  other text are ignored.
 
 ## Compatibility
 
@@ -120,7 +127,8 @@ Built against:
 - `sn-plugin-lib` 0.1.x
 - Supernote firmware exposing the official Plugin SDK
 
-Untested on-device — please verify before relying on the output.
+Lightly tested on-device — please verify the behavior on your own
+note files before relying on the output.
 
 ## License
 

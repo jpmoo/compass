@@ -1,4 +1,4 @@
-package com.scrollexport_scaffold
+package com.compass
 
 import android.app.Application
 import com.facebook.react.PackageList

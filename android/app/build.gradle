@@ -186,9 +186,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.scrollexport_scaffold"
+    namespace "com.compass"
     defaultConfig {
-        applicationId "com.scrollexport_scaffold"
+        applicationId "com.compass"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
