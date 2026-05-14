@@ -57,24 +57,37 @@ function unwrap(value, what) {
   return value.result;
 }
 
-// Resolve a template string acceptable to insertNotePage. The JSDoc
-// for insertNotePage calls this param "Page template name" (vs.
-// createNote which wants a "Template path"), so we feed it the
-// NoteTemplateInfo.name from getNotePageTemplate. Fall back to the
-// first system template's name if the current page has no usable
-// template info.
-async function resolveTemplate(notePath, page) {
-  const info = unwrap(
-    await PluginFileAPI.getNotePageTemplate(notePath, page),
-    'getNotePageTemplate',
-  );
-  if (info && typeof info === 'object' && info.name) return info.name;
+// Returns a prioritized list of template-name candidates to try with
+// insertNotePage. The first candidate is the current page's template
+// name (so the new page visually matches the source); subsequent
+// candidates are system templates as fallbacks for cases where the
+// source page uses a custom/unrecognized template name.
+async function templateCandidates(notePath, page) {
+  const candidates = [];
+  try {
+    const info = unwrap(
+      await PluginFileAPI.getNotePageTemplate(notePath, page),
+      'getNotePageTemplate',
+    );
+    if (info && typeof info === 'object' && info.name) {
+      candidates.push(info.name);
+    }
+  } catch {
+    // best-effort — fall through to system templates
+  }
 
   let sys = await PluginCommAPI.getNoteSystemTemplates();
   if (sys && !Array.isArray(sys) && sys.success) sys = sys.result;
-  if (Array.isArray(sys) && sys.length > 0 && sys[0]?.name) return sys[0].name;
+  if (Array.isArray(sys)) {
+    for (const t of sys) {
+      if (t?.name && !candidates.includes(t.name)) candidates.push(t.name);
+    }
+  }
 
-  throw new Error('cannot resolve a template for the new page');
+  if (candidates.length === 0) {
+    throw new Error('no templates available for new page');
+  }
+  return candidates;
 }
 
 // Returns the rect (pixel coords) for a link box centered on the given
@@ -133,19 +146,27 @@ export async function createLinkedPage(direction) {
   );
   if (!total || total < 1) throw new Error('note has no pages');
 
-  // Match the new page's template to the current page's template.
-  const template = await resolveTemplate(notePath, srcPage);
-
-  // Insert the new page at the end of the note.
+  // Match the new page's template to the current page's template,
+  // falling back to system templates if the source page's template
+  // name isn't accepted by insertNotePage (custom templates,
+  // firmware-specific names, etc.).
+  const candidates = await templateCandidates(notePath, srcPage);
   const newPage = total; // page index of the appended page (0-based)
-  unwrap(
-    await PluginFileAPI.insertNotePage({
+  let inserted = false;
+  let lastError = '';
+  for (const template of candidates) {
+    const res = await PluginFileAPI.insertNotePage({
       notePath,
       page: newPage,
       template,
-    }),
-    'insertNotePage',
-  );
+    });
+    if (res && res.success) {
+      inserted = true;
+      break;
+    }
+    lastError = (res && res.error && res.error.message) || 'insertNotePage failed';
+  }
+  if (!inserted) throw new Error(`insertNotePage: ${lastError}`);
 
   // Source-page link rect on the chosen edge, pointing to the new page.
   const srcSize = unwrap(
