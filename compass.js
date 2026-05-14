@@ -142,6 +142,14 @@ export async function createLinkedPage(direction) {
     'getCurrentPageNum',
   );
 
+  // Refuse to stack a second compass link on an edge that already has
+  // one. Without this guard the new link would land on top of the old
+  // one and silently orphan the old destination page.
+  const existing = await compassNeighbors(notePath, srcPage);
+  if (existing.some((n) => n.dir === direction)) {
+    throw new Error(`current page already has a ${ARROWS[direction]} link`);
+  }
+
   const total = unwrap(
     await PluginFileAPI.getNoteTotalPageNum(notePath),
     'getNoteTotalPageNum',
