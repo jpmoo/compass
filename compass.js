@@ -142,6 +142,12 @@ export async function createLinkedPage(direction) {
     'getCurrentPageNum',
   );
 
+  const total = unwrap(
+    await PluginFileAPI.getNoteTotalPageNum(notePath),
+    'getNoteTotalPageNum',
+  );
+  if (!total || total < 1) throw new Error('note has no pages');
+
   // Refuse to stack a second compass link on an edge that already has
   // one. Without this guard the new link would land on top of the old
   // one and silently orphan the old destination page.
@@ -150,11 +156,25 @@ export async function createLinkedPage(direction) {
     throw new Error(`current page already has a ${ARROWS[direction]} link`);
   }
 
-  const total = unwrap(
-    await PluginFileAPI.getNoteTotalPageNum(notePath),
-    'getNoteTotalPageNum',
-  );
-  if (!total || total < 1) throw new Error('note has no pages');
+  // Also refuse if some other page already has an opposite-direction
+  // return link pointing back to this page — that means the spatial
+  // slot is already claimed, even if the source page's outbound link
+  // was deleted. Letting a new link through would split that slot
+  // between two destinations.
+  const oppArrow = ARROWS[OPPOSITES[direction]];
+  for (let p = 0; p < total; p++) {
+    if (p === srcPage) continue;
+    const neighbors = await compassNeighbors(notePath, p);
+    if (
+      neighbors.some(
+        (n) => n.destPage === srcPage && ARROWS[n.dir] === oppArrow,
+      )
+    ) {
+      throw new Error(
+        `page ${p + 1} already has a ${oppArrow} link back to this page`,
+      );
+    }
+  }
 
   // Match the new page's template to the current page's template,
   // falling back to system templates if the source page's template
