@@ -295,15 +295,26 @@ async function compassNeighbors(notePath, page) {
     `getElements(page ${page})`,
   );
   const out = [];
-  if (!Array.isArray(elements)) return out;
-  for (const el of elements) {
-    if (!el || el.type !== TYPE_LINK || !el.link) continue;
-    const link = el.link;
-    if (link.linkType !== LINK_TYPE_NOTE_PAGE) continue;
-    if (link.destPath && link.destPath !== notePath) continue;
-    const dir = ARROW_TO_DIR[link.showText] || ARROW_TO_DIR[link.fullText];
-    if (!dir) continue;
-    out.push({ dir, destPage: link.destPage });
+  if (Array.isArray(elements)) {
+    for (const el of elements) {
+      if (!el || el.type !== TYPE_LINK || !el.link) continue;
+      const link = el.link;
+      if (link.linkType !== LINK_TYPE_NOTE_PAGE) continue;
+      if (link.destPath && link.destPath !== notePath) continue;
+      const dir = ARROW_TO_DIR[link.showText] || ARROW_TO_DIR[link.fullText];
+      if (!dir) continue;
+      out.push({ dir, destPage: link.destPage });
+    }
+  }
+  // getElements pulls each element's heavy data (angles, contours,
+  // stroke samples) into a native trail cache. Long-page notes blow
+  // the cache ceiling fast, after which subsequent getElements calls
+  // throw "Trail cache data is too large". We only need the link
+  // metadata returned inline, so dump the cache before the next call.
+  try {
+    PluginCommAPI.clearElementCache();
+  } catch {
+    // best-effort — never block on cache cleanup
   }
   return out;
 }
