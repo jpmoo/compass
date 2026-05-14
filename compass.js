@@ -57,21 +57,37 @@ function unwrap(value, what) {
   return value.result;
 }
 
-// Returns a prioritized list of template-name candidates to try with
-// insertNotePage. The first candidate is the current page's template
-// name (so the new page visually matches the source); the fallback is
-// a "blank" system template — looked up by name, with sys[0] as a
-// last resort if no blank-looking name is found.
+// Returns a prioritized list of template strings to try with
+// insertNotePage. The SDK docs disagree on whether the `template`
+// param is a "name" or a "path" — different firmware versions appear
+// to accept different forms — so for each plausible template we push
+// both its name and its URIs (portrait first, then landscape), in
+// priority order:
+//   1. The source page's template name (so the new page matches).
+//   2. A blank-looking system template (regex against localized names).
+//   3. The first system template, name + vUri + hUri.
+//   4. Every other system template, name + vUri + hUri.
+// Duplicates are skipped so the same string isn't tried twice.
 async function templateCandidates(notePath, page) {
   const candidates = [];
+  const push = (v) => {
+    if (typeof v === 'string' && v.length > 0 && !candidates.includes(v)) {
+      candidates.push(v);
+    }
+  };
+  const pushTemplate = (t) => {
+    if (!t) return;
+    push(t.name);
+    push(t.vUri);
+    push(t.hUri);
+  };
+
   try {
     const info = unwrap(
       await PluginFileAPI.getNotePageTemplate(notePath, page),
       'getNotePageTemplate',
     );
-    if (info && typeof info === 'object' && info.name) {
-      candidates.push(info.name);
-    }
+    if (info && typeof info === 'object') push(info.name);
   } catch {
     // best-effort — fall through to system templates
   }
@@ -82,8 +98,9 @@ async function templateCandidates(notePath, page) {
     const blank = sys.find(
       (t) => typeof t?.name === 'string' && /blank|none|empty|white/i.test(t.name),
     );
-    const pick = (blank && blank.name) || sys[0].name;
-    if (pick && !candidates.includes(pick)) candidates.push(pick);
+    pushTemplate(blank);
+    pushTemplate(sys[0]);
+    for (const t of sys) pushTemplate(t);
   }
 
   if (candidates.length === 0) {
