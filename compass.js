@@ -59,9 +59,9 @@ function unwrap(value, what) {
 
 // Returns a prioritized list of template-name candidates to try with
 // insertNotePage. The first candidate is the current page's template
-// name (so the new page visually matches the source); subsequent
-// candidates are system templates as fallbacks for cases where the
-// source page uses a custom/unrecognized template name.
+// name (so the new page visually matches the source); the fallback is
+// a "blank" system template — looked up by name, with sys[0] as a
+// last resort if no blank-looking name is found.
 async function templateCandidates(notePath, page) {
   const candidates = [];
   try {
@@ -78,10 +78,12 @@ async function templateCandidates(notePath, page) {
 
   let sys = await PluginCommAPI.getNoteSystemTemplates();
   if (sys && !Array.isArray(sys) && sys.success) sys = sys.result;
-  if (Array.isArray(sys)) {
-    for (const t of sys) {
-      if (t?.name && !candidates.includes(t.name)) candidates.push(t.name);
-    }
+  if (Array.isArray(sys) && sys.length > 0) {
+    const blank = sys.find(
+      (t) => typeof t?.name === 'string' && /blank|none|empty|white/i.test(t.name),
+    );
+    const pick = (blank && blank.name) || sys[0].name;
+    if (pick && !candidates.includes(pick)) candidates.push(pick);
   }
 
   if (candidates.length === 0) {
