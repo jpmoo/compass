@@ -303,11 +303,15 @@ async function compassNeighbors(notePath, page) {
       if (link.destPath && link.destPath !== notePath) continue;
       const dir = ARROW_TO_DIR[link.showText] || ARROW_TO_DIR[link.fullText];
       if (!dir) continue;
+      // Pad the rect outward so the host's solid-border stroke (drawn
+      // just outside the stored rect) gets cleared too. Without this
+      // the white fill leaves a thin border ringing the scrub area.
+      const PAD = 12;
       const rect = {
-        left: Math.round(link.X),
-        top: Math.round(link.Y),
-        right: Math.round(link.X + link.width),
-        bottom: Math.round(link.Y + link.height),
+        left: Math.round(link.X) - PAD,
+        top: Math.round(link.Y) - PAD,
+        right: Math.round(link.X + link.width) + PAD,
+        bottom: Math.round(link.Y + link.height) + PAD,
       };
       out.push({ dir, destPage: link.destPage, rect });
     }
