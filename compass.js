@@ -303,7 +303,13 @@ async function compassNeighbors(notePath, page) {
       if (link.destPath && link.destPath !== notePath) continue;
       const dir = ARROW_TO_DIR[link.showText] || ARROW_TO_DIR[link.fullText];
       if (!dir) continue;
-      out.push({ dir, destPage: link.destPage });
+      const rect = {
+        left: Math.round(link.X),
+        top: Math.round(link.Y),
+        right: Math.round(link.X + link.width),
+        bottom: Math.round(link.Y + link.height),
+      };
+      out.push({ dir, destPage: link.destPage, rect });
     }
   }
   // getElements pulls each element's heavy data (angles, contours,
@@ -344,6 +350,7 @@ export async function exportMap() {
   // when a later link would relocate a page; conflicts are counted.
   const coords = new Map(); // page → {col,row}
   const cellOwners = new Map(); // "col,row" → page
+  const stripsByPage = new Map(); // page → [rect, ...] for link-box scrubbing
   let conflicts = 0;
 
   coords.set(startPage, { col: 0, row: 0 });
@@ -354,6 +361,10 @@ export async function exportMap() {
     const page = queue.shift();
     const here = coords.get(page);
     const neighbors = await compassNeighbors(notePath, page);
+    stripsByPage.set(
+      page,
+      neighbors.filter((n) => n.rect).map((n) => n.rect),
+    );
     for (const { dir, destPage } of neighbors) {
       if (
         typeof destPage !== 'number' ||
@@ -444,7 +455,12 @@ export async function exportMap() {
         `generateNotePng(page ${page})`,
       );
       pagePaths.push(pagePath);
-      tiles.push({ path: pagePath, col: col - minCol, row: row - minRow });
+      tiles.push({
+        path: pagePath,
+        col: col - minCol,
+        row: row - minRow,
+        strip: stripsByPage.get(page) || [],
+      });
     }
 
     const stagedPath = `${tmpDir}/map_${baseName}_${stamp}.png`;

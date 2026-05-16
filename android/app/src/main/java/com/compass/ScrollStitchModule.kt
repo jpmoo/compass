@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -110,6 +111,11 @@ class ScrollStitchModule(reactContext: ReactApplicationContext) :
       val canvas = Canvas(dest)
       canvas.drawColor(Color.WHITE)
 
+      val whitePaint = Paint().apply {
+        color = Color.WHITE
+        style = Paint.Style.FILL
+      }
+
       for (i in 0 until tiles.size()) {
         val tile = tiles.getMap(i) ?: continue
         val path = tile.getString("path") ?: continue
@@ -125,6 +131,21 @@ class ScrollStitchModule(reactContext: ReactApplicationContext) :
         val y = rowY[row] + (cellH - page.height) / 2f
         canvas.drawBitmap(page, x, y, null)
         page.recycle()
+
+        // Optional `strip` array on the tile: rectangles in page-pixel
+        // coords (relative to the tile's top-left) that should be
+        // painted white. Used to scrub compass link boxes off the map.
+        val strip = tile.getArray("strip")
+        if (strip != null) {
+          for (j in 0 until strip.size()) {
+            val r = strip.getMap(j) ?: continue
+            val left = x + r.getInt("left").toFloat()
+            val top = y + r.getInt("top").toFloat()
+            val right = x + r.getInt("right").toFloat()
+            val bottom = y + r.getInt("bottom").toFloat()
+            canvas.drawRect(left, top, right, bottom, whitePaint)
+          }
+        }
       }
 
       File(outPath).parentFile?.mkdirs()
