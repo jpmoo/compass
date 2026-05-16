@@ -2,7 +2,7 @@
   "name": "Compass",
   "desc": "Adds a shortcut link on the current page that jumps to a freshly created page, with a return link on the opposite edge of the new page.",
   "iconPath": "./assets/icon.png",
-  "versionName": "0.1.0",
+  "versionName": "1.0.0",
   "versionCode": "1",
   "pluginID": "cmp4k7zq8x3m6vn1",
   "pluginKey": "compass",

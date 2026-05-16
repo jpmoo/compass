@@ -1,6 +1,6 @@
 {
   "name": "compass",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Drop a shortcut link from the current page to a new page on a chosen edge; the new page gets a return link on the opposite edge.",
   "private": true,
   "scripts": {
